@@ -20,6 +20,39 @@ Bezdrôtové ovládanie dronu a príjem telemetrie medzi riadiacou aplikáciou (
 - Zapojenie: modul TX → STM32 RX, modul RX → STM32 TX, spoločná zem, 3,3 V logika.
 - STM32: UART + DMA príjem s IDLE-line prerušením, kruhový buffer, parser rámcov.
 
+#### Náhľad zapojenia
+> Predbežné – konkrétne piny STM32 a typ modulu sa doplnia po rozhodnutí.
+
+```mermaid
+flowchart LR
+    subgraph STM32
+        TX[USARTx_TX]
+        RX[USARTx_RX]
+        G1[GND]
+        P1[3V3 / 5V]
+    end
+    subgraph MOD[Rádiový modul]
+        MRX[RX]
+        MTX[TX]
+        G2[GND]
+        VCC[VCC]
+    end
+    TX --> MRX
+    MTX --> RX
+    G1 --- G2
+    P1 -. podľa modulu .- VCC
+```
+
+| STM32 | Modul | Poznámka |
+|---|---|---|
+| USARTx_TX (TBD) | RX | dáta STM → modul |
+| USARTx_RX (TBD) | TX | dáta modul → STM |
+| GND | GND | spoločná zem povinná |
+| 3V3 / 5V | VCC | napájacie napätie podľa datasheetu modulu |
+
+- Logické úrovne UART 3,3 V.
+- Pred zapojením overiť napájanie a odber modulu z datasheetu.
+
 #### Návrhy rádiového modulu
 | Modul | Technológia | Cena | Latencia | PC (Electron) | Telefón (Capacitor) | Poznámka |
 |---|---|---|---|---|---|---|
