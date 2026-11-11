@@ -12,18 +12,16 @@ Potrebné úlohy:
 
 ## Komunikácia PC / telefón ↔ STM32 (Ondrejka)
 
-Bezdrôtové ovládanie dronu a príjem telemetrie. Všetka logika beží na STM32; rádiový modul je len transparentný UART most bez vlastného firmvéru.
+Bezdrôtové ovládanie dronu a príjem telemetrie medzi riadiacou aplikáciou (PC, telefón) a STM32.
 
 ### Hardvér
-| Modul | Typ | Cena | Electron (PC) | Capacitor (telefón) | Poznámka |
-|---|---|---|---|---|---|
-| **HM-10 / JDY-23** (odporúčaný) | BLE 4.x, UART | ~3 € | Web Bluetooth | Android + iOS (`@capacitor-community/bluetooth-le`) | max 20 B na zápis, latencia ~15–50 ms |
-| HC-05 / HC-06 | Bluetooth Classic (SPP), UART | ~4 € | Web Serial (virtuálny COM port) | iba Android, cez plugin | iOS nepodporuje SPP |
-
+- Rádiový modul pripojený k STM32 cez UART, správa sa ako transparentná sériová linka.
+- Všetka riadiaca logika (parser, failsafe, telemetria) beží na STM32.
 - Zapojenie: modul TX → STM32 RX, modul RX → STM32 TX, spoločná zem, 3,3 V logika.
 - STM32: UART + DMA príjem s IDLE-line prerušením, kruhový buffer, parser rámcov.
 
-### Protokol (binárny)
+### Protokol
+Binárny rámec:
 ```
 [0xAA][TYPE][LEN][PAYLOAD (LEN B)][CRC8]
 ```
@@ -38,22 +36,40 @@ Bezdrôtové ovládanie dronu a príjem telemetrie. Všetka logika beží na STM
 - Rámec s chybným CRC alebo neznámym `TYPE` sa zahodí.
 - Ovládanie sa posiela ako **stav** (aktuálne hodnoty v pravidelnom intervale), nie ako udalosti stlačenia klávesu.
 
-### Bezpečnosť (failsafe)
-- Ak STM32 nedostane platný ovládací rámec **250 ms**, motory idú na nulu / riadené klesanie a dron sa odzbrojí (disarm).
+### Failsafe
+- Ak STM32 nedostane platný ovládací rámec **250 ms**, dron vynuluje náklon (roll / pitch / yaw = 0) a **pomaly klesá** riadeným znižovaním plynu.
+- Po dosadnutí (throttle na minime) sa dron odzbrojí (disarm).
+- Ak sa spojenie obnoví počas klesania, ovládanie preberá opäť aplikácia.
 - Arm je povolený len pri throttle = 0.
 
-### Aplikácia
-- **Electron (notebook):** WASD = pitch / roll, šípky ↑↓ = throttle, ←→ = yaw. Hodnoty plynulo nabiehajú (rampa), nie skokom.
-- **Capacitor (telefón):** dva virtuálne joysticky – ľavý throttle / yaw, pravý pitch / roll.
-- Spoločný kód pre protokol a ovládací stav, rozdielna len vrstva vstupu a transportu.
+### Ovládanie
+**Electron (notebook):**
+| Kláves | Akcia |
+|---|---|
+| `W` / `S` alebo `↑` / `↓` | pitch – dopredu / dozadu |
+| `A` / `D` alebo `←` / `→` | roll – doľava / doprava |
+| `Q` / `E` | yaw – otočenie doľava / doprava |
+| `Space` | stúpanie |
+| `Ctrl` | klesanie |
+
+- Hodnoty plynulo nabiehajú (rampa), nie skokom.
+
+**Capacitor (telefón):**
+- Dva virtuálne joysticky – ľavý: stúpanie / klesanie + yaw, pravý: pitch / roll.
+
+**Spoločné:**
+- Zdieľaný kód pre protokol a ovládací stav, rozdielna len vrstva vstupu a transportu.
 - Zobrazenie telemetrie: náklon, napätie, stav spojenia (strata paketov, latencia).
 
+### Otvorené otázky
+- [ ] Môže byť ESP32-C3 SuperMini?
+
 ### Úlohy
-- [ ] Vybrať a objednať modul (HM-10 / JDY-23)
+- [ ] Výber rádiového modulu
 - [ ] STM32: UART DMA príjem + parser rámcov + CRC8
 - [ ] STM32: odosielanie telemetrie (napojenie na dáta z BMI160)
-- [ ] STM32: failsafe pri strate spojenia
+- [ ] STM32: failsafe – pomalé klesanie pri strate spojenia
 - [ ] Zdieľaná knižnica protokolu (TypeScript)
-- [ ] Electron aplikácia – BLE pripojenie, ovládanie klávesnicou
-- [ ] Capacitor aplikácia – BLE pripojenie, joystick UI
+- [ ] Electron aplikácia – pripojenie, ovládanie klávesnicou
+- [ ] Capacitor aplikácia – pripojenie, joystick UI
 - [ ] Meranie latencie a stratovosti
