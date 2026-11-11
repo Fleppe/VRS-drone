@@ -10,7 +10,7 @@ Potrebné úlohy:
 
 ---
 
-## Komunikácia PC / telefón ↔ STM32 (Ondrejka)
+## Komunikácia - Matúš Ondrejka
 
 Bezdrôtové ovládanie dronu a príjem telemetrie medzi riadiacou aplikáciou (PC, telefón) a STM32.
 
