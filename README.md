@@ -20,6 +20,13 @@ Bezdrôtové ovládanie dronu a príjem telemetrie medzi riadiacou aplikáciou (
 - Zapojenie: modul TX → STM32 RX, modul RX → STM32 TX, spoločná zem, 3,3 V logika.
 - STM32: UART + DMA príjem s IDLE-line prerušením, kruhový buffer, parser rámcov.
 
+#### Návrhy rádiového modulu
+| Modul | Technológia | Cena | Latencia | PC (Electron) | Telefón (Capacitor) | Poznámka |
+|---|---|---|---|---|---|---|
+| HM-10 / JDY-23 | BLE 4.x, UART | ~3 € | 15–50 ms | Web Bluetooth | Android + iOS (plugin `@capacitor-community/bluetooth-le`) | max 20 B na zápis |
+| HC-05 / HC-06 | Bluetooth Classic (SPP), UART | ~4 € | 20–40 ms | Web Serial (virtuálny COM port) | iba Android, cez plugin | iOS nepodporuje SPP |
+| ESP32-C3 SuperMini | WiFi (SoftAP) + WebSocket, UART most | ~3 € | 5–20 ms | WebSocket, bez pluginu | Android + iOS, bez pluginu | vlastný MCU s firmvérom mosta, odber ~100 mA – čaká na schválenie (viď Otvorené otázky) |
+
 ### Protokol
 Binárny rámec:
 ```
