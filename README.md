@@ -1,118 +1,87 @@
 # VRS-drone
 
-## Senzorika - Samuel Šubika
-#### Práca so senzorom DFRobot BMI160
-Potrebné úlohy:
-- Zabezpečiť I2C komunikáciu medzi senzorom a STM32
-- Čítanie 6 osí a prepočet hodnôt na stupne
-- Kalibrácia gyroskopu
-- Odhad náklonu
-- Posielanie dát do telemetrie
-
-####Odhad výšky pomocou GPS
+Projekt je postavený na dronovej platforme **Airvolute**. Dron drží rovinu vďaka kaskádovej PID regulácii, počúva povely z notebooku alebo telefónu a posiela späť telemetriu. Keď sa niečo pokazí (spojenie, batéria, motor), vie sám bezpečne pristáť.
 
 ---
 
-## Komunikácia - Matúš Ondrejka
 
-Bezdrôtové ovládanie dronu a príjem telemetrie medzi riadiacou aplikáciou (PC, telefón) a STM32.
-
-### Hardvér
-- Rádiový modul pripojený k STM32 cez UART, správa sa ako transparentná sériová linka.
-- Všetka riadiaca logika (parser, failsafe, telemetria) beží na STM32.
-- Zapojenie: modul TX → STM32 RX, modul RX → STM32 TX, spoločná zem, 3,3 V logika.
-- STM32: UART + DMA príjem s IDLE-line prerušením, kruhový buffer, parser rámcov.
-
-#### Náhľad zapojenia
-> Predbežné – konkrétne piny STM32 a typ modulu sa doplnia po rozhodnutí.
+## Stavy dronu
 
 ```mermaid
 flowchart LR
-    subgraph STM32
-        TX[USARTx_TX]
-        RX[USARTx_RX]
-        G1[GND]
-        P1[3V3 / 5V]
-    end
-    subgraph MOD[Rádiový modul]
-        MRX[RX]
-        MTX[TX]
-        G2[GND]
-        VCC[VCC]
-    end
-    TX --> MRX
-    MTX --> RX
-    G1 --- G2
-    P1 -. podľa modulu .- VCC
+    DIS([DISARMED]) -- "arm pri nulovom plyne" --> ARM([ARMED])
+    ARM -- "plyn" --> FLY([FLYING])
+    FLY -- "strata spojenia /<br/>kritická batéria" --> LAND([LANDING])
+    LAND -- "dosadnutie" --> END([DISARMED])
+
+    LAND -. "spojenie obnovené" .-> FLY
+    ARM -. "disarm" .-> DIS
+    FLY -. "porucha pohonu / disarm" .-> END
 ```
 
-| STM32 | Modul | Poznámka |
-|---|---|---|
-| USARTx_TX (TBD) | RX | dáta STM → modul |
-| USARTx_RX (TBD) | TX | dáta modul → STM |
-| GND | GND | spoločná zem povinná |
-| 3V3 / 5V | VCC | napájacie napätie podľa datasheetu modulu |
-
-- Logické úrovne UART 3,3 V.
-- Pred zapojením overiť napájanie a odber modulu z datasheetu.
-
-#### Návrhy rádiového modulu
-| Modul | Technológia | Cena | Latencia | PC (Electron) | Telefón (Capacitor) | Poznámka |
-|---|---|---|---|---|---|---|
-| HM-10 / JDY-23 | BLE 4.x, UART | ~3 € | 15–50 ms | Web Bluetooth | Android + iOS (plugin `@capacitor-community/bluetooth-le`) | max 20 B na zápis |
-| HC-05 / HC-06 | Bluetooth Classic (SPP), UART | ~4 € | 20–40 ms | Web Serial (virtuálny COM port) | iba Android, cez plugin | iOS nepodporuje SPP |
-| ESP32-C3 SuperMini | WiFi (SoftAP) + WebSocket, UART most | ~3 € | 5–20 ms | WebSocket, bez pluginu | Android + iOS, bez pluginu | vlastný MCU s firmvérom mosta, odber ~100 mA – čaká na schválenie (viď Otvorené otázky) |
-
-### Protokol
-Binárny rámec:
-```
-[0xAA][TYPE][LEN][PAYLOAD (LEN B)][CRC8]
-```
-| TYPE | Smer | Payload | Frekvencia |
-|---|---|---|---|
-| `0x01` ovládanie | PC → STM | throttle, roll, pitch, yaw (`int16` každý), flags (`uint8`, bit0 = arm) | 50 Hz |
-| `0x10` telemetria | STM → PC | roll, pitch, yaw (°×100, `int16`), napätie batérie (mV, `uint16`), stav (`uint8`) | 20–50 Hz |
-| `0x20` príkaz | PC → STM | ID príkazu + parametre (arm/disarm, kalibrácia gyra, PID) | na požiadanie |
-| `0x21` ACK | STM → PC | ID príkazu + výsledok | odpoveď na `0x20` |
-
-- Little-endian, CRC8 počítané cez `TYPE`, `LEN` a `PAYLOAD`.
-- Rámec s chybným CRC alebo neznámym `TYPE` sa zahodí.
-- Ovládanie sa posiela ako **stav** (aktuálne hodnoty v pravidelnom intervale), nie ako udalosti stlačenia klávesu.
-
-### Failsafe
-- Ak STM32 nedostane platný ovládací rámec **250 ms**, dron vynuluje náklon (roll / pitch / yaw = 0) a **pomaly klesá** riadeným znižovaním plynu.
-- Po dosadnutí (throttle na minime) sa dron odzbrojí (disarm).
-- Ak sa spojenie obnoví počas klesania, ovládanie preberá opäť aplikácia.
-- Arm je povolený len pri throttle = 0.
-
-### Ovládanie
-**Electron (notebook):**
-| Kláves | Akcia |
+| Stav | Čo robia motory |
 |---|---|
-| `W` / `S` alebo `↑` / `↓` | pitch – dopredu / dozadu |
-| `A` / `D` alebo `←` / `→` | roll – doľava / doprava |
-| `Q` / `E` | yaw – otočenie doľava / doprava |
-| `Space` | stúpanie |
-| `Ctrl` | klesanie |
+| `DISARMED` | stoja, ESC dostáva nulový plyn |
+| `ARMED` | pripravené, čaká sa na plyn |
+| `FLYING` | regulácia beží, riadi aplikácia |
+| `LANDING` | náklon sa vynuluje, plyn pomaly klesá |
 
-- Hodnoty plynulo nabiehajú (rampa), nie skokom.
+---
 
-**Capacitor (telefón):**
-- Dva virtuálne joysticky – ľavý: stúpanie / klesanie + yaw, pravý: pitch / roll.
+## Kto čo robí
 
-**Spoločné:**
-- Zdieľaný kód pre protokol a ovládací stav, rozdielna len vrstva vstupu a transportu.
-- Zobrazenie telemetrie: náklon, napätie, stav spojenia (strata paketov, latencia).
+**Samuel Šubika – Senzorika**
+ BMI160 cez I2C, kalibrácia gyroskopu, odhad náklonu, výška z GPS.
 
-### Otvorené otázky
-- [ ] Môže byť ESP32-C3 SuperMini?
 
-### Úlohy
-- [ ] Výber rádiového modulu
-- [ ] STM32: UART DMA príjem + parser rámcov + CRC8
-- [ ] STM32: odosielanie telemetrie (napojenie na dáta z BMI160)
-- [ ] STM32: failsafe – pomalé klesanie pri strate spojenia
-- [ ] Zdieľaná knižnica protokolu (TypeScript)
-- [ ] Electron aplikácia – pripojenie, ovládanie klávesnicou
-- [ ] Capacitor aplikácia – pripojenie, joystick UI
-- [ ] Meranie latencie a stratovosti
+**Matúš Ondrejka – Komunikácia**
+Ovladanie. Rádiový modul, binárny protokol s CRC8, telemetria, failsafe pri strate spojenia, aplikácie pre PC aj telefón.
+
+
+**Filip Král – Pohon**
+Pohon motorov a citanie baterie. ESC cez PWM / DShot, armovanie, meranie napätia cez ADC, failsafe pohonu.
+
+
+**Jakub Kleman – Regulácia**
+Kaskádové PID, mixér motorov, ladenie konštánt.
+
+
+### Kto komu čo odovzdáva
+
+| Od | Komu | Čo |
+|---|---|---|
+| Senzorika | Regulácia | uhly roll / pitch / yaw, uhlové rýchlosti |
+| Senzorika | Komunikácia | dáta pre telemetriu |
+| Komunikácia | Regulácia | žiadaný plyn, roll, pitch, yaw, arm / disarm, PID konštanty |
+| Regulácia | Pohon | plyn pre 4 motory |
+| Pohon | Regulácia | failsafe flagy (batéria, porucha pohonu) |
+| Pohon | Komunikácia | napätie batérie, stav |
+
+---
+
+## Hardvér
+
+| Podsystém | Súčiastka | Pripojenie |
+|---|---|---|
+| Mozog | STM32F303K8 (NUCLEO) alebo riadiaca doska integrovaná v drone Airvolute – typ zatiaľ nie je známy | – |
+| Rám a pohon | dron Airvolute – rám, motory, vrtule | – |
+| Pohon | ESC (integrované na doske Airvolute alebo vlastné 4-in-1) | PWM / DShot |
+| Pohon | LiPo batéria 6S + odporový delič napätia | ADC |
+| Senzorika | DFRobot BMI160 | I2C |
+| Senzorika | GPS modul | UART |
+| Komunikácia | rádiový modul (HM-10 / HC-05 / ESP32-C3 SuperMini) | UART |
+
+#### Failsafe
+| Situácia | Detekcia | Reakcia |
+|---|---|---|
+| Strata signálu medzi STM32 a ESC (výpadok kábla, zaseknutý program) | ESC samo deteguje chýbajúci signál; v STM32 watchdog (IWDG) | ESC po timeoute samo zastaví motory, STM32 sa po zaseknutí reštartuje |
+| Porucha motora / ESC | pri bidirectional DShot: motor nevracia otáčky pri nenulovom plyne | vyslanie flagu chyby pohonu, vypnutie motorov (kvadrokoptéra nedokáže letieť na 3 motoroch) |
+| Chyba pri čítaní batérie | hodnota mimo reálneho rozsahu alebo ADC/I2C neodpovedá | rovnako ako pri kritickej úrovni – vyslanie flagu na okamžité pristátie |
+| Nízka batéria – varovanie | napätie pod hranicou varovania | vyslanie varovného flagu (návrat / pristátie podľa rozhodnutia riadiacej časti) |
+| Nízka batéria – kritická | napätie pod kritickou hranicou | vyslanie flagu, ktorý prikáže okamžité pristátie drona a následné vypnutie motorov |
+| Strata príkazov z riadiacej časti | žiadny nový príkaz počas stanoveného času | pristátie, prípadne vypnutie motorov |
+
+#### Otvorené otázky
+- Môže byť ESP32-C3 SuperMini?
+---
+
