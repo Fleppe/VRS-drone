@@ -1,87 +1,95 @@
 # VRS-drone
-
-Projekt je postavený na dronovej platforme **Airvolute**. Dron drží rovinu vďaka kaskádovej PID regulácii, počúva povely z notebooku alebo telefónu a posiela späť telemetriu. Keď sa niečo pokazí (spojenie, batéria, motor), vie sám bezpečne pristáť.
-
----
-
+ 
+Semestrálny projekt na predmet VRS, zimný semester 2026/2027.
+ 
+### Zadanie
+ 
+Cieľom je navrhnúť dron, ktorého riadenie zabezpečuje STM32. Stabilizácia dronu bude zabezpečená vďaka gyroskopu a akcelerometru, držanie výšky bude zabezpečené pomocou laserového diaľkomera. Dron bude možné ovládať diaľkovým ovládačom a samotná regulácia bude navrhnutá pomocou PID regulátora. Dáta z telemetrie budú posielané cez Wi-Fi (asi). Stabilizácia sa bude testovať na gimbale.
+ 
+ 
+## Hardvér
+ 
+| Komponent | ks | Popis |
+|---|---|---|
+| STM32F303K8 | 1 | Riadiaca doska |
+| Rám | 1 | Vytlačený na 3D tlačiarni |
+| Vrtule | 4 | Je to proste vrtuľa |
+| Motor | 4 | AIR 2216/KV880, požičané od Davida |
+| ESC | 4 | AIR 20A, požičané od Davida |
+| Skystars PDB| 1| Napájanie pre ESC; Je to vobec potrebne? |
+| XL4015 | 1 | Step-down menič napätia na napájanie STM32 (je v škatuli v NCR, možno by sa dal požičať) |
+| LiPo batéria + nabíjačka | – | 3S alebo 4S, s dostatočným C |
+| DFRobot BMI160 | 1 | Akcelerometer a gyroskop |
+| Laserový senzor (Samo, doplň názov) | 1 | Odhad výšky |
+| Rádiový modul (HM-10 / HC-05 / ESP32-C3 SuperMini) | – | Matúš, niečo si sem napíš a pozri, či je to dobré |
+ 
+## Bloková schéma
+ 
+```mermaid
+flowchart LR
+    APP["Aplikácia<br/>(PC / telefón)"] <-->|Wi-Fi| RADIO["ESP32-C3"]
+    RADIO <-->|USART| STM["STM32F303K8"]
+    IMU["IMU BMI160"] -->|I2C| STM
+    LAS["Laserový diaľkomer"] -->|I2C| STM
+    STM -->|PWM| ESC["4× ESC"]
+    ESC --> MOT["4× motor"]
+    BAT["LiPo batéria"] --> ESC
+    BAT["LiPo batéria"] -->|step-down 5 V| STM
+    BAT -->|delič napätia → ADC| STM
+```
 
 ## Stavy dronu
-
+ 
 ```mermaid
 flowchart LR
     DIS([DISARMED]) -- "arm pri nulovom plyne" --> ARM([ARMED])
     ARM -- "plyn" --> FLY([FLYING])
     FLY -- "strata spojenia /<br/>kritická batéria" --> LAND([LANDING])
     LAND -- "dosadnutie" --> END([DISARMED])
-
+ 
     LAND -. "spojenie obnovené" .-> FLY
     ARM -. "disarm" .-> DIS
     FLY -. "porucha pohonu / disarm" .-> END
 ```
-
+ 
 | Stav | Čo robia motory |
 |---|---|
-| `DISARMED` | stoja, ESC dostáva nulový plyn |
-| `ARMED` | pripravené, čaká sa na plyn |
-| `FLYING` | regulácia beží, riadi aplikácia |
-| `LANDING` | náklon sa vynuluje, plyn pomaly klesá |
-
+| `DISARMED` | Stoja, ESC dostáva nulový plyn |
+| `ARMED` | Pripravené, čaká sa na plyn |
+| `FLYING` | Regulácia beží, riadi aplikácia |
+| `LANDING` | Náklon sa vynuluje, plyn pomaly klesá |
+ 
 ---
+ 
+## Rozdelenie úloh
+ 
+**Samuel Šubika**
+- *Senzorika:* IMU, laserový diaľkomer, sprostredkovanie použiteľných dát na riadenie cez I2C.
+- *Modelovanie:* Návrh rámu, výpočet jeho veľkosti, pomer hmotnosti dronu a veľkosti vrtúľ a pod.
 
-## Kto čo robí
+**Matúš Ondrejka**
+- *Komunikácia:* Ovládanie, rádiový modul, binárny protokol s CRC8, telemetria, failsafe pri strate spojenia, aplikácie pre PC aj telefón.
 
-**Samuel Šubika – Senzorika**
- BMI160 cez I2C, kalibrácia gyroskopu, odhad náklonu, výška z GPS.
+**Filip Král**
+- *Pohon:* Ovládanie motorov pomocou PWM, napájanie (celého dronu), meranie stavu batérie pomocou A/D prevodníka (súčasť STM32). Failsafe: v prípade zlyhania motorov alebo vybitej batérie bezpečné pristátie dronu a vypnutie motorov.
 
-
-**Matúš Ondrejka – Komunikácia**
-Ovladanie. Rádiový modul, binárny protokol s CRC8, telemetria, failsafe pri strate spojenia, aplikácie pre PC aj telefón.
-
-
-**Filip Král – Pohon**
-Pohon motorov a citanie baterie. ESC cez PWM / DShot, armovanie, meranie napätia cez ADC, failsafe pohonu.
-
-
-**Jakub Kleman – Regulácia**
-Kaskádové PID, mixér motorov, ladenie konštánt.
-
-
-### Kto komu čo odovzdáva
-
-| Od | Komu | Čo |
-|---|---|---|
-| Senzorika | Regulácia | uhly roll / pitch / yaw, uhlové rýchlosti |
-| Senzorika | Komunikácia | dáta pre telemetriu |
-| Komunikácia | Regulácia | žiadaný plyn, roll, pitch, yaw, arm / disarm, PID konštanty |
-| Regulácia | Pohon | plyn pre 4 motory |
-| Pohon | Regulácia | failsafe flagy (batéria, porucha pohonu) |
-| Pohon | Komunikácia | napätie batérie, stav |
-
+**Jakub Kleman**
+- *Regulácia:* Kaskádové PID, mixér motorov, ladenie konštánt.
 ---
-
-## Hardvér
-
-| Podsystém | Súčiastka | Pripojenie |
-|---|---|---|
-| Mozog | STM32F303K8 (NUCLEO) alebo riadiaca doska integrovaná v drone Airvolute – typ zatiaľ nie je známy | – |
-| Rám a pohon | dron Airvolute – rám, motory, vrtule | – |
-| Pohon | ESC (integrované na doske Airvolute alebo vlastné 4-in-1) | PWM / DShot |
-| Pohon | LiPo batéria 6S + odporový delič napätia | ADC |
-| Senzorika | DFRobot BMI160 | I2C |
-| Senzorika | GPS modul | UART |
-| Komunikácia | rádiový modul (HM-10 / HC-05 / ESP32-C3 SuperMini) | UART |
-
-#### Failsafe
-| Situácia | Detekcia | Reakcia |
-|---|---|---|
-| Strata signálu medzi STM32 a ESC (výpadok kábla, zaseknutý program) | ESC samo deteguje chýbajúci signál; v STM32 watchdog (IWDG) | ESC po timeoute samo zastaví motory, STM32 sa po zaseknutí reštartuje |
-| Porucha motora / ESC | pri bidirectional DShot: motor nevracia otáčky pri nenulovom plyne | vyslanie flagu chyby pohonu, vypnutie motorov (kvadrokoptéra nedokáže letieť na 3 motoroch) |
-| Chyba pri čítaní batérie | hodnota mimo reálneho rozsahu alebo ADC/I2C neodpovedá | rovnako ako pri kritickej úrovni – vyslanie flagu na okamžité pristátie |
-| Nízka batéria – varovanie | napätie pod hranicou varovania | vyslanie varovného flagu (návrat / pristátie podľa rozhodnutia riadiacej časti) |
-| Nízka batéria – kritická | napätie pod kritickou hranicou | vyslanie flagu, ktorý prikáže okamžité pristátie drona a následné vypnutie motorov |
-| Strata príkazov z riadiacej časti | žiadny nový príkaz počas stanoveného času | pristátie, prípadne vypnutie motorov |
-
-#### Otvorené otázky
+## Otvorené otázky
 - Môže byť ESP32-C3 SuperMini?
----
+- Je PDB potrebne?
 
+ 
+## Stav vypracovania
+- [ ] Vypracovanie špecifikácie
+- [ ] Objednanie súčiastok
+- [ ] Výroba rámu
+- [ ] Diaľkové ovládanie
+- [ ] Telemetria
+- [ ] Test motorov
+- [ ] Ovládanie motorov pomocou PWM
+- [ ] Driver pre IMU (čítanie a spracovanie dát)
+- [ ] Návrh regulátora a test stability na gimbale
+- [ ] Ovládanie dronu na gimbale
+- [ ] Test letu a držanie výšky
