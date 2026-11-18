@@ -20,7 +20,7 @@ Cieľom je navrhnúť dron, ktorého riadenie zabezpečuje STM32. Stabilizácia 
 | LiPo batéria + nabíjačka | – | 3S alebo 4S, s dostatočným C |
 | DFRobot BMI160 | 1 | Akcelerometer a gyroskop |
 | Laserový senzor (Samo, doplň názov) | 1 | Odhad výšky |
-| Rádiový modul (HM-10 / HC-05 / ESP32-C3 SuperMini) | – | Matúš, niečo si sem napíš a pozri, či je to dobré |
+| Rádiový modul (ESP32-C3 SuperMini) | 1 | ESP32-C3 bude ako AP pre počítač/telefón/steam deck |
  
 ## Bloková schéma
  
