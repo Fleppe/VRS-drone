@@ -16,7 +16,6 @@ Cieľom je navrhnúť dron, ktorého riadenie zabezpečuje STM32. Stabilizácia 
 | Vrtule | 4 | Je to proste vrtuľa |
 | Motor | 4 | AIR 2216/KV880, požičané od Davida |
 | ESC | 4 | AIR 20A, požičané od Davida |
-| Skystars PDB| 1| Napájanie pre ESC; Je to vobec potrebne? |
 | XL4015 | 1 | Step-down menič napätia na napájanie STM32 (je v škatuli v NCR, možno by sa dal požičať) |
 | LiPo batéria + nabíjačka | – | 3S alebo 4S, s dostatočným C |
 | DFRobot BMI160 | 1 | Akcelerometer a gyroskop |
@@ -78,7 +77,6 @@ flowchart LR
 ---
 ## Otvorené otázky
 - Môže byť ESP32-C3 SuperMini?
-- Je PDB potrebne?
 
  
 ## Stav vypracovania
