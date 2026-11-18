@@ -76,7 +76,7 @@ flowchart LR
 - *Regulácia:* Kaskádové PID, mixér motorov, ladenie konštánt.
 ---
 ## Otvorené otázky
-- Môže byť ESP32-C3 SuperMini?
+- Null
 
  
 ## Stav vypracovania
