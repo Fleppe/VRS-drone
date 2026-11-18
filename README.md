@@ -19,7 +19,7 @@ Cieľom je navrhnúť dron, ktorého riadenie zabezpečuje STM32. Stabilizácia 
 | XL4015 | 1 | Step-down menič napätia na napájanie STM32 (je v škatuli v NCR, možno by sa dal požičať) |
 | LiPo batéria + nabíjačka | – | 3S alebo 4S, s dostatočným C |
 | DFRobot BMI160 | 1 | Akcelerometer a gyroskop |
-| Laserový senzor (Samo, doplň názov) | 1 | Odhad výšky |
+| Laserový senzor (Waveshare Mini Laser TOF Sensor) | 1 | Odhad výšky |
 | Rádiový modul (ESP32-C3 SuperMini) | 1 | ESP32-C3 bude ako AP pre počítač/telefón/steam deck |
  
 ## Bloková schéma
