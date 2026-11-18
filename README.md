@@ -76,7 +76,7 @@ flowchart LR
 - *Regulácia:* Kaskádové PID, mixér motorov, ladenie konštánt.
 ---
 ## Otvorené otázky
-- Null
+- Môže byť rádiový modul Seeed Studio XIAO ESP32-S3 Sense namiesto ESP32-C3 SuperMini? Má kameru OV2640 a 8 MB PSRAM – [AliExpress](https://www.aliexpress.com/item/1005008416980328.html), detaily v [Komunikacia/README.md](Komunikacia/README.md).
 
  
 ## Stav vypracovania
