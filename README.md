@@ -61,9 +61,17 @@ flowchart LR
 ## Návrh UI (prvotný mockup)
 > Prvotný mockup ovládacej aplikácie – základ toho, čo chceme robiť, ešte sa bude meniť. Na obrázkoch sú ukážkové dáta. Detaily v [Komunikacia/README.md](Komunikacia/README.md).
 
-| PC | Steam Deck | Telefón |
-|---|---|---|
-| ![UI na PC](Komunikacia/img/ui-pc.png) | ![UI na Steam Decku](Komunikacia/img/ui-deck.png) | ![UI na telefóne](Komunikacia/img/ui-phone.png) |
+**PC**
+
+![UI na PC](Komunikacia/img/ui-pc.png)
+
+**Steam Deck**
+
+![UI na Steam Decku](Komunikacia/img/ui-deck.png)
+
+**Telefón**
+
+![UI na telefóne](Komunikacia/img/ui-phone.png)
 
 ---
  
