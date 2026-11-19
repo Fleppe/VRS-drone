@@ -72,8 +72,9 @@ flowchart LR
 **Filip Král**
 - *Pohon:* Ovládanie motorov pomocou PWM, napájanie (celého dronu), meranie stavu batérie pomocou A/D prevodníka (súčasť STM32). Failsafe: v prípade zlyhania motorov alebo vybitej batérie bezpečné pristátie dronu a vypnutie motorov.
 
+  
 **Jakub Kleman**
-- *Regulácia:* Kaskádové PID, mixér motorov, ladenie konštánt.
+- *Regulácia:* Kaskádové PID regulátory (vonkajšia slučka pre uhol náklonu, vnútorná pre uhlovú rýchlosť z gyroskopu), PID pre držanie výšky podľa laserového diaľkomera. Mixér motorov: prepočet výstupov regulátorov na PWM pre 4 motory. Ladenie konštánt na gimbale, anti-windup a nulovanie regulátorov pri vypnutých motoroch.
 ---
 ## Otvorené otázky
 - Môže byť rádiový modul Seeed Studio XIAO ESP32-S3 Sense namiesto ESP32-C3 SuperMini? Má kameru OV2640 a 8 MB PSRAM – [AliExpress](https://www.aliexpress.com/item/1005008416980328.html), detaily v [Komunikacia/README.md](Komunikacia/README.md).
