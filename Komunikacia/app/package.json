@@ -1,0 +1,16 @@
+{
+  "name": "dron-vrs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Android aplikacia (Capacitor) pre ovladanie dronu cez ESP32",
+  "scripts": {
+    "prepare-web": "node -e \"require('fs').mkdirSync('www',{recursive:true});require('fs').copyFileSync('../esp32-bridge/data/index.html','www/index.html')\""
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/core": "^8.6.2"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.6.2"
+  }
+}

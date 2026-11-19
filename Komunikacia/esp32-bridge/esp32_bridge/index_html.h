@@ -1,0 +1,587 @@
+// VYGENEROVANE z data/index.html skriptom html_to_header.py – needitovat rucne
+#pragma once
+const char INDEX_HTML[] = R"HTML_END(<!DOCTYPE html>
+<html lang="sk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>Dron</title>
+<style>
+  :root {
+    --bg: #f0f0f0; --panel: #fff; --line: #a0a0a0; --fg: #000; --muted: #808080;
+    --btn: #e1e1e1; --btn-line: #adadad; --hover: #e5f1fb; --focus: #0078d7;
+    --ok: #107c10; --bad: #c42b1c;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body {
+    margin: 0; height: 100%; overflow: hidden;
+    background: var(--bg); color: var(--fg);
+    font: 13px "Segoe UI", Tahoma, Arial, sans-serif;
+    user-select: none; -webkit-user-select: none; touch-action: none;
+  }
+  body { display: grid; height: 100dvh; gap: 6px; padding: 6px; }
+
+  /* ---------- rozlozenie podla zariadenia ---------- */
+  #bar { grid-area: bar; } #att { grid-area: att; } #yaw { grid-area: yaw; }
+  #rx { grid-area: rx; } #tx { grid-area: tx; } #out { grid-area: out; } #help { grid-area: help; }
+  #infoL { grid-area: infoL; } #infoR { grid-area: infoR; } #stickL { grid-area: stickL; } #stickR { grid-area: stickR; }
+
+  /* PC: hore naklon a smer, v strede konzoly RX / TX, dole ovladanie */
+  body.pc {
+    --g: min(30vh, 260px);
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-areas: "att att yaw yaw" "rx rx tx tx" "bar out help help";
+  }
+  /* Steam Deck 1280x800: v strede konzoly RX / TX, po stranach data */
+  body.deck {
+    --g: min(26vh, 200px);
+    grid-template-columns: minmax(240px, 1fr) 1fr 1fr minmax(240px, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "bar bar bar bar" "att rx tx yaw" "out rx tx help";
+  }
+  /* telefon: joysticky po stranach, nad nimi hodnoty, v strede naklon a smer */
+  body.phone {
+    --g: min(36vh, 160px);
+    --stick: clamp(100px, 42vh, 190px);
+    grid-template-columns: auto 1fr 1fr auto;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: "bar bar bar bar" "infoL att yaw infoR" "stickL att yaw stickR";
+    gap: 4px; padding: 4px;
+  }
+  body.phone .nums { font-size: 12px; }
+  body.phone #bar { font-size: 12px; padding: 2px 6px; gap: 2px 8px; }
+  body.phone #bar button { padding: 2px 8px; }
+  body.phone #att, body.phone #yaw { padding: 0 4px 4px; gap: 0; }
+  body.phone .info { align-self: center; font-size: 12px; }
+
+  /* ---------- prvky v style matlab / tkinter ---------- */
+  fieldset {
+    margin: 0; min-width: 0; min-height: 0; padding: 4px 8px 8px;
+    border: 1px solid var(--line); background: var(--panel);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+    overflow: hidden;
+  }
+  legend { padding: 0 4px; }
+  button { font: inherit; padding: 3px 14px; background: var(--btn); border: 1px solid var(--btn-line); border-radius: 0; color: var(--fg); }
+  button:hover { background: var(--hover); border-color: var(--focus); }
+  button:active { background: #cce4f7; }
+  button:disabled { color: #a0a0a0; background: #f4f4f4; border-color: #d0d0d0; }
+  select { font: inherit; }
+
+  #bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
+    padding: 4px 8px; background: var(--panel); border: 1px solid var(--line);
+  }
+  #conn { display: inline-block; width: 10px; height: 10px; margin-right: 4px; border-radius: 50%; background: var(--bad); }
+  #conn.on { background: var(--ok); }
+  #res { margin-left: auto; color: var(--muted); }
+
+  .nums { display: grid; grid-template-columns: auto auto; gap: 2px 16px; font-variant-numeric: tabular-nums; }
+  .nums span:nth-child(even) { text-align: right; min-width: 72px; }
+  .stale { color: var(--muted); }
+  .on { color: var(--ok); font-weight: 700; }
+  .off { color: var(--bad); font-weight: 700; }
+
+  /* umely horizont (roll / pitch) a kompas (yaw) */
+  .gfx { position: relative; flex: none; width: var(--g); aspect-ratio: 1; border-radius: 50%; border: 2px solid #000; overflow: hidden; background: #fff; }
+  #horizon { position: absolute; inset: -50%; background: linear-gradient(#5b9bd5 50%, #a5734a 50%); }
+  #att .gfx::after { content: ""; position: absolute; left: 25%; right: 25%; top: calc(50% - 1px); height: 2px; background: #000; }
+  #needle { position: absolute; left: calc(50% - 2px); top: 12%; width: 4px; height: 38%; background: var(--bad); transform-origin: 50% 100%; }
+  /* 0° = smer pri zapnuti dronu (BMI160 nema magnetometer, sever nepozname) */
+  .north { position: absolute; top: 2px; left: 0; right: 0; text-align: center; font-weight: 700; }
+
+
+  /* konzoly RX / TX */
+  .console {
+    flex: 1; width: 100%; min-height: 0; margin: 0; overflow: auto;
+    border: 1px solid #c8c8c8; background: #fff;
+    font: 12px Consolas, "Courier New", monospace; white-space: pre-wrap; overflow-wrap: anywhere; overflow-x: hidden; user-select: text;
+  }
+
+  #help div b { display: inline-block; min-width: 60px; }
+
+  /* PC: kompaktny spodny riadok (ovladanie, hodnoty, napoveda) */
+  body.pc #bar, body.pc #out, body.pc #help { font-size: 12px; }
+  body.pc #bar { align-content: center; padding: 2px 8px; }
+  body.pc #bar button { padding: 2px 10px; }
+  /* PC: lista ako zarovnana tabulka 2 x 4 */
+  body.pc #bar {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; align-items: center;
+    grid-template-areas: "st bat" "pad res" "arm exp" "pause fs";
+  }
+  body.pc .b-st { grid-area: st; } body.pc .b-bat { grid-area: bat; } body.pc .b-pad { grid-area: pad; }
+  body.pc #res { grid-area: res; margin: 0; justify-self: end; }
+  body.pc #arm { grid-area: arm; } body.pc #export { grid-area: exp; }
+  body.pc .b-pause { grid-area: pause; } body.pc #fs { grid-area: fs; }
+  body.pc #bar button { width: 100%; }
+  body.pc #out, body.pc #help { padding: 0 8px 4px; gap: 4px; }
+  body.pc #out .nums { grid-template-columns: repeat(4, auto); gap: 1px 12px; }
+  body.pc #out .nums span:nth-child(even) { min-width: 40px; }
+  body.pc #help { flex-direction: row; align-items: flex-start; gap: 24px; }
+  body.pc #help div div { line-height: 1.3; }
+
+  /* joysticky (iba telefon) */
+  .stick { position: relative; align-self: center; width: var(--stick); aspect-ratio: 1; border-radius: 50%; border: 3px solid #000; background: #fff; }
+  .knob { position: absolute; left: 30%; top: 30%; width: 40%; height: 40%; border-radius: 50%; background: #c8c8c8; border: 1px solid #808080; }
+  .info { align-self: end; text-align: center; font-variant-numeric: tabular-nums; }
+
+  #rotate { display: none; position: fixed; inset: 0; background: var(--bg); align-items: center; justify-content: center; font-size: 18px; }
+  @media (orientation: portrait) { body.phone #rotate { display: flex; } }
+</style>
+</head>
+<body>
+
+<div id="bar">
+  <span class="b-st"><span id="conn" title="spojenie"></span> Stav: <b id="state">ODPOJENÝ</b></span>
+  <span class="b-bat">Batéria: <b id="bat">–</b></span>
+  <span class="b-pad">Ovládač: <b id="pad">nie</b></span>
+  <button id="arm">Zapnúť motory (<b class="on">ON</b>)</button>
+  <button id="export" title="Iba pri vypnutých motoroch">Export do Excelu</button>
+  <label class="b-pause" data-modes="pc deck"><input type="checkbox" id="pause"> Pozastaviť výpis</label>
+  <button id="fs" title="Celá obrazovka">⛶ Celá obrazovka</button>
+  <span id="res"></span>
+</div>
+
+<fieldset id="att">
+  <legend>Náklon (Roll / Pitch)</legend>
+  <div class="gfx"><div id="horizon"></div></div>
+  <div class="nums tele">
+    <span>Do strany (Roll)</span><span id="tRoll">–</span>
+    <span>Dopredu (Pitch)</span><span id="tPitch">–</span>
+  </div>
+</fieldset>
+
+<fieldset id="yaw">
+  <legend>Smer (Yaw)</legend>
+  <div class="gfx" title="0° = smer, kam dron mieril pri zapnutí"><span class="north">0°</span><div id="needle"></div></div>
+  <div class="nums tele">
+    <span>Otočenie (Yaw)</span><span id="tYaw">–</span>
+    <span>Výška (Altitude)</span><span id="tAlt">–</span>
+  </div>
+</fieldset>
+
+<fieldset id="rx" data-modes="pc deck">
+  <legend>Prijaté dáta</legend>
+  <pre class="console" id="rxLog"></pre>
+</fieldset>
+
+<fieldset id="tx" data-modes="pc deck">
+  <legend>Odoslané dáta</legend>
+  <pre class="console" id="txLog"></pre>
+</fieldset>
+
+<fieldset id="out" data-modes="pc deck">
+  <legend>Odosielané hodnoty</legend>
+  <div class="nums">
+    <span>Plyn (Throttle)</span><span id="oThr">0</span>
+    <span>Otočenie (Yaw)</span><span id="oYaw">0</span>
+    <span>Dopredu (Pitch)</span><span id="oPitch">0</span>
+    <span>Do strany (Roll)</span><span id="oRoll">0</span>
+    <span>Motory (Arm)</span><span id="oArm">0</span>
+  </div>
+</fieldset>
+
+<fieldset id="help" data-modes="pc deck">
+  <legend>Ovládanie</legend>
+  <div data-modes="pc deck">
+    <div><b>R2 / L2</b> stúpanie / klesanie</div>
+    <div><b>ľavá páka</b> do strán = otočenie</div>
+    <div><b>pravá páka</b> dopredu / dozadu, doľava / doprava</div>
+    <div><b>A</b> zapnúť / vypnúť motory (vypnúť = podržať 1 s)</div>
+    <div><b>B</b> vypnúť motory hneď</div>
+  </div>
+  <div data-modes="pc">
+    <div><b>W / S</b> dopredu / dozadu</div>
+    <div><b>A / D</b> doľava / doprava</div>
+    <div><b>šípky</b> to isté ako WASD</div>
+    <div><b>Q / E</b> otočenie</div>
+    <div><b>medzerník</b> stúpanie</div>
+    <div><b>Shift</b> klesanie</div>
+  </div>
+</fieldset>
+
+<div class="info" id="infoL" data-modes="phone">Plyn (Throttle) <b id="iThr">0</b><br>Otočenie (Yaw) <b id="iYaw">0</b></div>
+<div class="info" id="infoR" data-modes="phone">Dopredu (Pitch) <b id="iPitch">0</b><br>Do strany (Roll) <b id="iRoll">0</b></div>
+<div class="stick" id="stickL" data-modes="phone"><div class="knob"></div></div>
+<div class="stick" id="stickR" data-modes="phone"><div class="knob"></div></div>
+
+<div id="rotate">Otoč telefón na šírku</div>
+
+<script>
+// Protokol: [0xAA][TYPE][LEN][PAYLOAD][CRC8], viď Komunikacia/README.md
+const T_CONTROL = 0x01, T_TELEMETRY = 0x10;
+const STATES = ['VYPNUTÝ', 'PRIPRAVENÝ', 'LETÍ', 'PRISTÁVA'];   // 0..3 podla protokolu
+const MAX = 1000;          // rozsah osi -1000..1000
+const RAMP = 50;           // max zmena za jeden tick (20 ms) -> 0,4 s na plnu hodnotu
+const PERIOD_MS = 20;      // 50 Hz
+// v Android aplikacii (Capacitor) je stranka lokalne, ESP32 je vzdy na 192.168.4.1
+const IN_APP = !!window.Capacitor;
+const HOST = IN_APP ? '192.168.4.1' : (location.hostname || '192.168.4.1');
+
+const $ = id => document.getElementById(id);
+const ctl = { thr: 0, yaw: 0, pitch: 0, roll: 0, arm: false };
+const keys = new Set();
+const sticks = { L: { x: 0, y: 0 }, R: { x: 0, y: 0 } };
+let ws = null, lastTelemetry = 0, rx = [], mode = '';
+
+// ---------- rozlozenie: telefon / Steam Deck / PC ----------
+function applyMode() {
+  const forced = new URLSearchParams(location.search).get('mode');   // ?mode=pc|deck|phone na testovanie
+  // podla rozlisenia obrazovky: Steam Deck = presne 1280x800, telefon = kratsia strana < 768 px, inak PC
+  const w = Math.max(screen.width, screen.height), h = Math.min(screen.width, screen.height);
+  mode = forced || (w === 1280 && h === 800 ? 'deck' : h < 768 ? 'phone' : 'pc');
+  document.body.className = mode;
+  document.querySelectorAll('[data-modes]').forEach(el => {
+    el.hidden = !el.dataset.modes.split(' ').includes(mode);
+  });
+  $('res').textContent = screen.width + '×' + screen.height;
+  renderConsole('rx'); renderConsole('tx');
+}
+
+addEventListener('resize', applyMode);
+
+// ---------- konzoly RX / TX ----------
+const logs = { rx: [], tx: [] }, lastLog = { rx: 0, tx: 0 };
+const hex = b => Array.from(b, x => x.toString(16).padStart(2, '0')).join(' ');
+
+function time() {
+  const d = new Date();
+  return d.getHours() + ':' + String(d.getMinutes()).padStart(2, '0') + ':' + String(d.getSeconds()).padStart(2, '0');
+}
+
+// pravidelne ramce max 10 riadkov/s, udalosti a chyby (force) vzdy
+function log(which, text, force) {
+  const now = performance.now();
+  if (!force && now - lastLog[which] < 100) return;
+  lastLog[which] = now;
+  logs[which].push(time() + ': ' + text);   // format h:mm:ss: [data]
+  if (logs[which].length > 200) logs[which].shift();
+  renderConsole(which);
+}
+
+function renderConsole(which) {
+  if (mode === 'phone' || $('pause').checked) return;
+  const el = $(which + 'Log');
+  const esc = t => t.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  el.innerHTML = esc(logs[which].join('\n'))
+    .replace(/motory([ =])(ON|OFF)/g, (m, sep, v) => `motory${sep}<b class="${v === 'ON' ? 'on' : 'off'}">${v}</b>`);
+  el.scrollTop = el.scrollHeight;
+}
+
+// ---------- CRC8 (poly 0x07, init 0x00) a ramce ----------
+function crc8(bytes) {
+  let c = 0;
+  for (const b of bytes) {
+    c ^= b;
+    for (let i = 0; i < 8; i++) c = c & 0x80 ? ((c << 1) ^ 0x07) & 0xFF : (c << 1) & 0xFF;
+  }
+  return c;
+}
+
+function frame(type, payload) {
+  const f = new Uint8Array(payload.length + 4);
+  f[0] = 0xAA; f[1] = type; f[2] = payload.length;
+  f.set(payload, 3);
+  f[f.length - 1] = crc8(f.subarray(1, f.length - 1));
+  return f;
+}
+
+// ---------- WebSocket ----------
+function connect() {
+  ws = new WebSocket('ws://' + HOST + ':81/');   // WebSocket server na ESP32 bezi na porte 81
+  ws.binaryType = 'arraybuffer';
+  ws.onopen = () => { $('conn').classList.add('on'); log('rx', '--- spojenie otvorené ---', true); };
+  ws.onclose = () => {
+    if ($('conn').classList.contains('on')) log('rx', '--- spojenie stratené ---', true);
+    $('conn').classList.remove('on'); $('state').textContent = 'ODPOJENÝ';
+    ctl.arm = false;
+    setTimeout(connect, 1000);
+  };
+  ws.onmessage = e => receive(new Uint8Array(e.data));
+}
+
+function sendControl() {
+  const p = new DataView(new ArrayBuffer(9));
+  p.setInt16(0, ctl.thr, true);
+  p.setInt16(2, ctl.roll, true);
+  p.setInt16(4, ctl.pitch, true);
+  p.setInt16(6, ctl.yaw, true);
+  p.setUint8(8, ctl.arm ? 1 : 0);
+  const f = frame(T_CONTROL, new Uint8Array(p.buffer));
+  const open = ws && ws.readyState === WebSocket.OPEN;
+  if (open) ws.send(f);
+  rec('tx', [ctl.thr, ctl.yaw, ctl.pitch, ctl.roll, ctl.arm ? 'ON' : 'OFF', open ? 'áno' : 'nie', hex(f)]);
+  // vypisuje sa aj bez spojenia, aby sa dalo ovladanie skusat bez dronu
+  log('tx', `[${hex(f)}]`);
+}
+
+// ramce mozu prist rozdelene alebo spojene, preto buffer
+function receive(bytes) {
+  rx.push(...bytes);
+  while (rx.length >= 4) {
+    if (rx[0] !== 0xAA) { rx.shift(); continue; }
+    const n = rx[2] + 4;
+    if (rx.length < n) break;
+    const f = rx.slice(0, n);
+    if (crc8(f.slice(1, n - 1)) !== f[n - 1]) { log('rx', `chybné CRC [${hex(f)}]`, true); rx.shift(); continue; }
+    rx = rx.slice(n);
+    handle(f[1], new DataView(new Uint8Array(f.slice(3, n - 1)).buffer), f);
+  }
+}
+
+function handle(type, d, f) {
+  if (type !== T_TELEMETRY || d.byteLength < 11) {
+    log('rx', `neznámy rámec 0x${type.toString(16).padStart(2, '0')} [${hex(f)}]`, true);
+    return;
+  }
+  const roll = d.getInt16(0, true) / 100, pitch = d.getInt16(2, true) / 100, yaw = d.getInt16(4, true) / 100;
+  const alt = d.getUint16(6, true), bat = d.getUint16(8, true);
+  const state = STATES[d.getUint8(10)] || '?';
+  const changed = state !== $('state').textContent;
+  log('rx', `[${hex(f)}]`, changed);
+
+  $('tRoll').textContent = roll.toFixed(1) + '°';
+  $('tPitch').textContent = pitch.toFixed(1) + '°';
+  $('tYaw').textContent = yaw.toFixed(1) + '°';
+  $('tAlt').textContent = (alt / 1000).toFixed(2) + ' m';
+  $('bat').textContent = (bat / 1000).toFixed(2) + ' V';
+  $('state').textContent = state;
+  $('horizon').style.transform = `rotate(${-roll}deg) translateY(${pitch * 2}px)`;
+  $('needle').style.transform = `rotate(${yaw}deg)`;
+  lastTelemetry = performance.now();
+  rec('rx', [roll, pitch, yaw, alt / 1000, bat / 1000, state, hex(f)]);
+}
+
+// ---------- zaznam dat a export do Excelu ----------
+// .xlsx bez kniznic (ESP nema internet): niekolko XML suborov zabalenych v ZIP bez kompresie
+const TX_HEADER = ['Čas', 'Čas od spustenia [s]', 'Plyn (Throttle)', 'Otočenie (Yaw)', 'Dopredu (Pitch)',
+                   'Do strany (Roll)', 'Motory (Arm)', 'Spojenie', 'Rámec (hex)'];
+const RX_HEADER = ['Čas', 'Čas od spustenia [s]', 'Do strany (Roll) [°]', 'Dopredu (Pitch) [°]', 'Otočenie (Yaw) [°]',
+                   'Výška (Altitude) [m]', 'Batéria [V]', 'Stav', 'Rámec (hex)'];
+const MAX_ROWS = 100000;   // ~30 min odosielania pri 50 Hz
+const record = { tx: [], rx: [] }, startTime = performance.now();
+
+function rec(which, values) {
+  record[which].push([time(), +((performance.now() - startTime) / 1000).toFixed(3), ...values]);
+  if (record[which].length > MAX_ROWS) record[which].shift();
+}
+
+const CRC_TABLE = Array.from({ length: 256 }, (_, n) => {
+  let c = n;
+  for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+  return c >>> 0;
+});
+function crc32(bytes) {
+  let c = 0xFFFFFFFF;
+  for (const b of bytes) c = CRC_TABLE[(c ^ b) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+function zip(files) {
+  const enc = new TextEncoder(), local = [], central = [];
+  let offset = 0;
+  for (const f of files) {
+    const name = enc.encode(f.name), data = enc.encode(f.data), crc = crc32(data);
+    const h = new DataView(new ArrayBuffer(30));
+    h.setUint32(0, 0x04034b50, true); h.setUint16(4, 20, true); h.setUint16(6, 0x0800, true);
+    h.setUint16(12, 0x21, true);                                   // datum 1.1.1980
+    h.setUint32(14, crc, true); h.setUint32(18, data.length, true); h.setUint32(22, data.length, true);
+    h.setUint16(26, name.length, true);
+    local.push(h, name, data);
+    const c = new DataView(new ArrayBuffer(46));
+    c.setUint32(0, 0x02014b50, true); c.setUint16(4, 20, true); c.setUint16(6, 20, true); c.setUint16(8, 0x0800, true);
+    c.setUint16(14, 0x21, true);
+    c.setUint32(16, crc, true); c.setUint32(20, data.length, true); c.setUint32(24, data.length, true);
+    c.setUint16(28, name.length, true); c.setUint32(42, offset, true);
+    central.push(c, name);
+    offset += 30 + name.length + data.length;
+  }
+  const size = central.reduce((n, part) => n + part.byteLength, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true);
+  end.setUint32(12, size, true); end.setUint32(16, offset, true);
+  return new Blob([...local, ...central, end], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+
+const xmlEsc = v => String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+const XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+const NS_MAIN = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+const NS_REL = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+const NS_PKG = 'http://schemas.openxmlformats.org/package/2006/relationships';
+
+function sheet(header, rows) {
+  const cell = (v, style = '') => typeof v === 'number'
+    ? `<c${style}><v>${v}</v></c>`
+    : `<c t="inlineStr"${style}><is><t>${xmlEsc(v)}</t></is></c>`;
+  const row = (r, style) => '<row>' + r.map(v => cell(v, style)).join('') + '</row>';
+  const cols = header.map((h, i) => {
+    const w = i === header.length - 1 ? 48 : Math.max(12, h.length + 2);
+    return `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`;
+  }).join('');
+  return XML + `<worksheet xmlns="${NS_MAIN}">` +
+    '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>' +
+    `<cols>${cols}</cols><sheetData>` + row(header, ' s="1"') + rows.map(r => row(r)).join('') + '</sheetData></worksheet>';
+}
+
+function buildXlsx() {
+  const ct = t => `application/vnd.openxmlformats-officedocument.spreadsheetml.${t}+xml`;
+  return zip([
+    { name: '[Content_Types].xml', data: XML + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">' +
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>' +
+      '<Default Extension="xml" ContentType="application/xml"/>' +
+      `<Override PartName="/xl/workbook.xml" ContentType="${ct('sheet.main')}"/>` +
+      `<Override PartName="/xl/styles.xml" ContentType="${ct('styles')}"/>` +
+      `<Override PartName="/xl/worksheets/sheet1.xml" ContentType="${ct('worksheet')}"/>` +
+      `<Override PartName="/xl/worksheets/sheet2.xml" ContentType="${ct('worksheet')}"/></Types>` },
+    { name: '_rels/.rels', data: XML + `<Relationships xmlns="${NS_PKG}">` +
+      `<Relationship Id="rId1" Type="${NS_REL}/officeDocument" Target="xl/workbook.xml"/></Relationships>` },
+    { name: 'xl/workbook.xml', data: XML + `<workbook xmlns="${NS_MAIN}" xmlns:r="${NS_REL}"><sheets>` +
+      '<sheet name="Odoslané" sheetId="1" r:id="rId1"/><sheet name="Prijaté" sheetId="2" r:id="rId2"/></sheets></workbook>' },
+    { name: 'xl/_rels/workbook.xml.rels', data: XML + `<Relationships xmlns="${NS_PKG}">` +
+      `<Relationship Id="rId1" Type="${NS_REL}/worksheet" Target="worksheets/sheet1.xml"/>` +
+      `<Relationship Id="rId2" Type="${NS_REL}/worksheet" Target="worksheets/sheet2.xml"/>` +
+      `<Relationship Id="rId3" Type="${NS_REL}/styles" Target="styles.xml"/></Relationships>` },
+    { name: 'xl/styles.xml', data: XML + `<styleSheet xmlns="${NS_MAIN}">` +
+      '<fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>' +
+      '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>' +
+      '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>' +
+      '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>' +
+      '<cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+      '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs></styleSheet>' },
+    { name: 'xl/worksheets/sheet1.xml', data: sheet(TX_HEADER, record.tx) },
+    { name: 'xl/worksheets/sheet2.xml', data: sheet(RX_HEADER, record.rx) },
+  ]);
+}
+
+function exportXlsx() {
+  if (ctl.arm) return;   // export iba pri vypnutych motoroch
+  const d = new Date(), p2 = n => String(n).padStart(2, '0');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(buildXlsx());
+  a.download = `dron_${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}_${p2(d.getHours())}-${p2(d.getMinutes())}-${p2(d.getSeconds())}.xlsx`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+$('export').onclick = exportXlsx;
+
+// ---------- vstupy ----------
+const key = (...codes) => codes.some(c => keys.has(c)) ? 1 : 0;
+const clamp = v => Math.max(-1, Math.min(1, v));
+const deadzone = v => Math.abs(v || 0) < 0.1 ? 0 : v;
+const DISARM_HOLD_MS = 1000;
+let disarmSince = null, aWasPressed = false;
+
+addEventListener('keydown', e => {
+  keys.add(e.code);
+  if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
+});
+addEventListener('keyup', e => keys.delete(e.code));
+addEventListener('blur', () => keys.clear());   // inak by klaves "zasekol" po prepnuti okna
+
+function stick(el, s) {
+  const knob = el.firstElementChild;
+  let id = null;
+  const move = e => {
+    const r = el.getBoundingClientRect(), R = r.width / 2;
+    let x = (e.clientX - r.left - R) / R, y = (e.clientY - r.top - R) / R;
+    const m = Math.hypot(x, y);
+    if (m > 1) { x /= m; y /= m; }
+    s.x = x; s.y = y;
+    knob.style.transform = `translate(${x * R * 0.6}px, ${y * R * 0.6}px)`;
+  };
+  const end = e => {
+    if (e.pointerId !== id) return;
+    id = null; s.x = s.y = 0; knob.style.transform = '';
+  };
+  el.addEventListener('pointerdown', e => { id = e.pointerId; el.setPointerCapture(id); move(e); });
+  el.addEventListener('pointermove', e => { if (e.pointerId === id) move(e); });
+  el.addEventListener('pointerup', end);
+  el.addEventListener('pointercancel', end);
+}
+stick($('stickL'), sticks.L);
+stick($('stickR'), sticks.R);
+
+// zapnutie / vypnutie motorov jednym tlacidlom (toggle)
+function setArm(on) {
+  if (on && ctl.thr !== 0) { log('tx', 'zapnutie odmietnuté – plyn nie je na nule', true); return; }
+  ctl.arm = on;
+}
+$('arm').onclick = () => setArm(!ctl.arm);
+
+// ---------- hlavna slucka 50 Hz ----------
+const ramp = (cur, target) => cur + Math.max(-RAMP, Math.min(RAMP, Math.round(target * MAX) - cur));
+
+function tick() {
+  // klavesnica (PC, Steam Deck) + dotykove packy (telefon); y je na obrazovke dole kladne, preto minus
+  let thr   = key('Space') - key('ShiftLeft', 'ShiftRight') - sticks.L.y;   // na ovladaci ide plyn cez R2 / L2
+  let yaw   = key('KeyE') - key('KeyQ') + sticks.L.x;
+  let pitch = key('KeyW', 'ArrowUp') - key('KeyS', 'ArrowDown') - sticks.R.y;
+  let roll  = key('KeyD', 'ArrowRight') - key('KeyA', 'ArrowLeft') + sticks.R.x;
+
+  // realne packy Steam Decku alebo ovladac k PC (Xbox, PlayStation...) cez Gamepad API
+  // prehliadac ovladac ukaze az po prvom stlaceni tlacidla
+  const gp = [...navigator.getGamepads()].find(g => g);
+  $('pad').textContent = gp ? 'áno' : 'nie';
+  if (gp) {
+    // R2 = stupanie, L2 = klesanie (analogovo podla sily stlacenia), lava packa iba do stran = otacanie
+    thr += (gp.buttons[7]?.value || 0) - (gp.buttons[6]?.value || 0);
+    yaw += deadzone(gp.axes[0]);
+    pitch -= deadzone(gp.axes[3]); roll += deadzone(gp.axes[2]);
+    // A = toggle motorov: zapnutie hned, vypnutie az po podrzani 1 s (nahodny stisk za letu nevypne motory)
+    const a = gp.buttons[0]?.pressed;
+    if (a && !aWasPressed && !ctl.arm) setArm(true);
+    else if (a && ctl.arm && !aWasPressed) disarmSince = performance.now();
+    if (a && ctl.arm && disarmSince !== null && performance.now() - disarmSince >= DISARM_HOLD_MS) { setArm(false); disarmSince = null; }
+    if (!a) disarmSince = null;
+    aWasPressed = a;
+    // B = vypnut motory hned
+    if (gp.buttons[1]?.pressed && ctl.arm) setArm(false);
+  }
+
+  ctl.thr = ramp(ctl.thr, clamp(thr));
+  ctl.yaw = ramp(ctl.yaw, clamp(yaw));
+  ctl.pitch = ramp(ctl.pitch, clamp(pitch));
+  ctl.roll = ramp(ctl.roll, clamp(roll));
+  sendControl();
+
+  $('oThr').textContent = $('iThr').textContent = ctl.thr;
+  $('oYaw').textContent = $('iYaw').textContent = ctl.yaw;
+  $('oPitch').textContent = $('iPitch').textContent = ctl.pitch;
+  $('oRoll').textContent = $('iRoll').textContent = ctl.roll;
+  $('oArm').innerHTML = ctl.arm ? '<b class="on">ON</b>' : '<b class="off">OFF</b>';
+  $('export').disabled = ctl.arm;
+  $('arm').innerHTML = ctl.arm ? 'Vypnúť motory (<b class="off">OFF</b>)' : 'Zapnúť motory (<b class="on">ON</b>)';
+  const stale = performance.now() - lastTelemetry > 500;
+  document.querySelectorAll('.tele').forEach(el => el.classList.toggle('stale', stale));
+}
+
+// ---------- cela obrazovka (skryje listu prehliadaca) ----------
+// prehliadac to dovoli iba po kliknuti / dotyku pouzivatela
+function toggleFullscreen() {
+  const el = document.documentElement;
+  if (document.fullscreenElement) { document.exitFullscreen(); return; }
+  const req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (!req) return;   // napr. iPhone fullscreen pre stranky nepodporuje
+  Promise.resolve(req.call(el, { navigationUI: 'hide' }))
+    .then(() => screen.orientation?.lock?.('landscape'))
+    .catch(() => {});
+}
+$('fs').onclick = toggleFullscreen;
+if (IN_APP) $('fs').hidden = true;   // aplikacia uz bezi na celu obrazovku
+// na telefone prvy dotyk mimo tlacidiel automaticky prepne na celu obrazovku
+addEventListener('pointerdown', e => {
+  if (mode === 'phone' && !IN_APP && !document.fullscreenElement && !e.target.closest('button, select, label')) toggleFullscreen();
+});
+document.addEventListener('fullscreenchange', () => {
+  $('fs').textContent = document.fullscreenElement ? '⛶ Ukončiť celú obrazovku' : '⛶ Celá obrazovka';
+});
+
+applyMode();
+connect();
+setInterval(tick, PERIOD_MS);
+</script>
+</body>
+</html>
+)HTML_END";

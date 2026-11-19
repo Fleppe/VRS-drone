@@ -1,0 +1,12 @@
+{
+  "appId": "sk.vrs.dron",
+  "appName": "Dron VRS",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "http",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

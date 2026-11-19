@@ -1,0 +1,48 @@
+# Zostavi Android APK (Capacitor) z weboveho UI v Komunikacia/esp32-bridge/data/index.html.
+# APK sa stiahne v zalozke Actions -> posledny beh -> Artifacts -> dron-vrs-apk
+name: Android APK
+
+on:
+  push:
+    paths:
+      - "Komunikacia/esp32-bridge/data/**"
+      - "Komunikacia/app/**"
+      - ".github/workflows/android-apk.yml"
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Komunikacia/app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Instalacia Capacitor
+        run: npm ci --no-audit --no-fund
+
+      - name: Priprava Android projektu
+        run: |
+          npm run prepare-web
+          npx cap add android
+          bash patch-android.sh
+          npx cap sync android
+
+      - name: Build APK
+        working-directory: Komunikacia/app/android
+        run: ./gradlew assembleDebug --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dron-vrs-apk
+          path: Komunikacia/app/android/app/build/outputs/apk/debug/app-debug.apk

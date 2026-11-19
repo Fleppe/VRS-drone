@@ -20,13 +20,13 @@ Cieľom je navrhnúť dron, ktorého riadenie zabezpečuje STM32. Stabilizácia 
 | LiPo batéria + nabíjačka | – | 3S alebo 4S, s dostatočným C |
 | DFRobot BMI160 | 1 | Akcelerometer a gyroskop |
 | Laserový senzor (Waveshare Mini Laser TOF Sensor) | 1 | Odhad výšky |
-| Rádiový modul (ESP32-C3 SuperMini) | 1 | ESP32-C3 bude ako AP pre počítač/telefón/steam deck |
+| Rádiový modul (ESP32) | 1 | Klasické ESP32 (WROOM DevKit) ako AP pre počítač/telefón/steam deck |
  
 ## Bloková schéma
  
 ```mermaid
 flowchart LR
-    APP["Aplikácia<br/>(PC / telefón)"] <-->|Wi-Fi| RADIO["ESP32-C3"]
+    APP["Aplikácia<br/>(PC / telefón)"] <-->|Wi-Fi| RADIO["ESP32"]
     RADIO <-->|USART| STM["STM32F303K8"]
     IMU["IMU BMI160"] -->|I2C| STM
     LAS["Laserový diaľkomer"] -->|I2C| STM
@@ -91,7 +91,7 @@ flowchart LR
 - *Regulácia:* Kaskádové PID, mixér motorov, ladenie konštánt.
 ---
 ## Otvorené otázky
-- Môže byť rádiový modul Seeed Studio XIAO ESP32-S3 Sense namiesto ESP32-C3 SuperMini? Má kameru OV2640 a 8 MB PSRAM – [AliExpress](https://www.aliexpress.com/item/1005008416980328.html), detaily v [Komunikacia/README.md](Komunikacia/README.md).
+- Null
 
  
 ## Stav vypracovania

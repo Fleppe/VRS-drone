@@ -1,7 +1,10 @@
-# XIAO ESP32-S3 Sense – Wi-Fi most + kamera
+# ESP32 – Wi-Fi most
 
-Firmvér pre Seeed Studio XIAO ESP32-S3 Sense: SoftAP + WebSocket server, transparentný most WebSocket ↔ UART do STM32, MJPEG stream z kamery OV2640.
+Firmvér pre klasické ESP32: Wi-Fi AP + webové UI + WebSocket ↔ UART most do STM32.
 
-- `data/index.html` – webové UI (PC / telefón / Steam Deck), servované na `http://192.168.4.1/`
-- WebSocket endpoint: `ws://192.168.4.1/ws`, binárne rámce podľa protokolu v [../README.md](../README.md)
-- UI sa dá otvoriť aj lokálne v prehliadači (bez dronu ukazuje stav odpojený)
+- `esp32_bridge/esp32_bridge.ino` – sketch pre Arduino IDE (knižnica **WebSockets** od Markus Sattler)
+- `esp32_bridge/index_html.h` – UI vložené do firmvéru (generované, needitovať)
+- `data/index.html` – zdrojový kód UI, dá sa otvoriť aj priamo v prehliadači
+- `html_to_header.py` – po zmene UI: `python html_to_header.py`
+
+Návod na spustenie: [../README.md](../README.md#firmvér-esp32--ako-to-spustiť)

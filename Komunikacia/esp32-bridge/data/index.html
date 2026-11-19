@@ -18,41 +18,40 @@
     font: 13px "Segoe UI", Tahoma, Arial, sans-serif;
     user-select: none; -webkit-user-select: none; touch-action: none;
   }
-  body { display: grid; height: 100dvh; gap: 6px; padding: 6px; --camw: 600px; }
+  body { display: grid; height: 100dvh; gap: 6px; padding: 6px; }
 
   /* ---------- rozlozenie podla zariadenia ---------- */
-  #bar { grid-area: bar; } #att { grid-area: att; } #yaw { grid-area: yaw; } #cam { grid-area: cam; }
+  #bar { grid-area: bar; } #att { grid-area: att; } #yaw { grid-area: yaw; }
   #rx { grid-area: rx; } #tx { grid-area: tx; } #out { grid-area: out; } #help { grid-area: help; }
   #infoL { grid-area: infoL; } #infoR { grid-area: infoR; } #stickL { grid-area: stickL; } #stickR { grid-area: stickR; }
 
-  /* PC: kamera hore v strede, vedla naklon a smer, dole konzoly RX / TX, pod nimi ovladanie */
+  /* PC: hore naklon a smer, v strede konzoly RX / TX, dole ovladanie */
   body.pc {
-    --g: 200px;
-    grid-template-columns: minmax(220px, 1fr) calc((var(--camw) - 6px) / 2) calc((var(--camw) - 6px) / 2) minmax(220px, 1fr);
-    grid-template-rows: minmax(0, 1fr) 200px auto;
-    grid-template-areas: "att cam cam yaw" "rx rx tx tx" "bar out help help";
+    --g: min(30vh, 260px);
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-areas: "att att yaw yaw" "rx rx tx tx" "bar out help help";
   }
-  /* Steam Deck 1280x800: co najvacsia kamera v strede, pod nou nizke konzoly RX / TX, po stranach data */
+  /* Steam Deck 1280x800: v strede konzoly RX / TX, po stranach data */
   body.deck {
-    --g: 150px;
-    grid-template-columns: minmax(220px, 1fr) calc((var(--camw) - 6px) / 2) calc((var(--camw) - 6px) / 2) minmax(220px, 1fr);
-    grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr) 140px;
-    grid-template-areas: "bar bar bar bar" "att cam cam yaw" "out cam cam help" "out rx tx help";
+    --g: min(26vh, 200px);
+    grid-template-columns: minmax(240px, 1fr) 1fr 1fr minmax(240px, 1fr);
+    grid-template-rows: auto minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas: "bar bar bar bar" "att rx tx yaw" "out rx tx help";
   }
-  /* telefon: co najvacsia kamera cez celu vysku v strede, po stranach grafika + hodnoty + joystick */
+  /* telefon: joysticky po stranach, nad nimi hodnoty, v strede naklon a smer */
   body.phone {
-    --g: min(15vh, 60px);
-    --stick: clamp(100px, 38vh, 180px);
-    grid-template-columns: minmax(calc(var(--stick) + 4px), 1fr) var(--camw) minmax(calc(var(--stick) + 4px), 1fr);
-    grid-template-rows: auto auto auto minmax(0, 1fr);
-    grid-template-areas: "bar bar bar" "att cam yaw" "infoL cam infoR" "stickL cam stickR";
+    --g: min(36vh, 160px);
+    --stick: clamp(100px, 42vh, 190px);
+    grid-template-columns: auto 1fr 1fr auto;
+    grid-template-rows: auto auto minmax(0, 1fr);
+    grid-template-areas: "bar bar bar bar" "infoL att yaw infoR" "stickL att yaw stickR";
     gap: 4px; padding: 4px;
   }
-  body.phone .nums { display: none; }
+  body.phone .nums { font-size: 12px; }
   body.phone #bar { font-size: 12px; padding: 2px 6px; gap: 2px 8px; }
   body.phone #bar button { padding: 2px 8px; }
   body.phone #att, body.phone #yaw { padding: 0 4px 4px; gap: 0; }
-  body.phone #cam { padding: 2px; }
   body.phone .info { align-self: center; font-size: 12px; }
 
   /* ---------- prvky v style matlab / tkinter ---------- */
@@ -88,16 +87,9 @@
   #horizon { position: absolute; inset: -50%; background: linear-gradient(#5b9bd5 50%, #a5734a 50%); }
   #att .gfx::after { content: ""; position: absolute; left: 25%; right: 25%; top: calc(50% - 1px); height: 2px; background: #000; }
   #needle { position: absolute; left: calc(50% - 2px); top: 12%; width: 4px; height: 38%; background: var(--bad); transform-origin: 50% 100%; }
+  /* 0° = smer pri zapnuti dronu (BMI160 nema magnetometer, sever nepozname) */
   .north { position: absolute; top: 2px; left: 0; right: 0; text-align: center; font-weight: 700; }
 
-  /* kamera */
-  /* kamera vzdy v pomere 4:3 (320 x 240), co najvacsia v ramci panelu */
-  #cam { padding: 4px; }
-  .camArea { flex: 1; width: 100%; min-height: 0; container-type: size; display: flex; align-items: center; justify-content: center; }
-  .camBox { width: min(100cqw, 100cqh * 4 / 3); aspect-ratio: 4 / 3; background: #000; }
-  #camImg { display: block; width: 100%; height: 100%; object-fit: contain; }
-  #camNone { display: flex; align-items: center; justify-content: center; width: 100%; height: 100%; color: #9a9a9a; }
-  #camNone svg { max-width: 120px; max-height: 60%; }
 
   /* konzoly RX / TX */
   .console {
@@ -115,13 +107,13 @@
   /* PC: lista ako zarovnana tabulka 2 x 4 */
   body.pc #bar {
     display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; align-items: center;
-    grid-template-areas: "st bat" "pad res" "arm exp" "pause mode";
+    grid-template-areas: "st bat" "pad res" "arm exp" "pause fs";
   }
   body.pc .b-st { grid-area: st; } body.pc .b-bat { grid-area: bat; } body.pc .b-pad { grid-area: pad; }
   body.pc #res { grid-area: res; margin: 0; justify-self: end; }
   body.pc #arm { grid-area: arm; } body.pc #export { grid-area: exp; }
-  body.pc .b-pause { grid-area: pause; } body.pc #mode { grid-area: mode; }
-  body.pc #bar button, body.pc #mode { width: 100%; }
+  body.pc .b-pause { grid-area: pause; } body.pc #fs { grid-area: fs; }
+  body.pc #bar button { width: 100%; }
   body.pc #out, body.pc #help { padding: 0 8px 4px; gap: 4px; }
   body.pc #out .nums { grid-template-columns: repeat(4, auto); gap: 1px 12px; }
   body.pc #out .nums span:nth-child(even) { min-width: 40px; }
@@ -146,12 +138,7 @@
   <button id="arm">Zapnúť motory (<b class="on">ON</b>)</button>
   <button id="export" title="Iba pri vypnutých motoroch">Export do Excelu</button>
   <label class="b-pause" data-modes="pc deck"><input type="checkbox" id="pause"> Pozastaviť výpis</label>
-  <select id="mode" title="rozloženie">
-    <option value="">automaticky</option>
-    <option value="pc">PC</option>
-    <option value="deck">Steam Deck</option>
-    <option value="phone">telefón</option>
-  </select>
+  <button id="fs" title="Celá obrazovka">⛶ Celá obrazovka</button>
   <span id="res"></span>
 </div>
 
@@ -166,25 +153,11 @@
 
 <fieldset id="yaw">
   <legend>Smer (Yaw)</legend>
-  <div class="gfx"><span class="north">N</span><div id="needle"></div></div>
+  <div class="gfx" title="0° = smer, kam dron mieril pri zapnutí"><span class="north">0°</span><div id="needle"></div></div>
   <div class="nums tele">
     <span>Otočenie (Yaw)</span><span id="tYaw">–</span>
     <span>Výška (Altitude)</span><span id="tAlt">–</span>
   </div>
-</fieldset>
-
-<fieldset id="cam">
-  <legend>Kamera</legend>
-  <div class="camArea"><div class="camBox">
-  <img id="camImg" alt="" hidden>
-  <div id="camNone" title="Kamera nedostupná">
-    <svg viewBox="0 0 24 24" width="25%" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-label="Kamera nedostupná">
-      <rect x="2" y="6" width="13" height="12" rx="2"/>
-      <path d="M15 10.5l6-3.5v10l-6-3.5z"/>
-      <path d="M2 2l20 20"/>
-    </svg>
-  </div>
-  </div></div>
 </fieldset>
 
 <fieldset id="rx" data-modes="pc deck">
@@ -217,7 +190,7 @@
     <div><b>A</b> zapnúť / vypnúť motory (vypnúť = podržať 1 s)</div>
     <div><b>B</b> vypnúť motory hneď</div>
   </div>
-  <div>
+  <div data-modes="pc">
     <div><b>W / S</b> dopredu / dozadu</div>
     <div><b>A / D</b> doľava / doprava</div>
     <div><b>šípky</b> to isté ako WASD</div>
@@ -241,7 +214,9 @@ const STATES = ['VYPNUTÝ', 'PRIPRAVENÝ', 'LETÍ', 'PRISTÁVA'];   // 0..3 podl
 const MAX = 1000;          // rozsah osi -1000..1000
 const RAMP = 50;           // max zmena za jeden tick (20 ms) -> 0,4 s na plnu hodnotu
 const PERIOD_MS = 20;      // 50 Hz
-const HOST = location.hostname || '192.168.4.1';
+// v Android aplikacii (Capacitor) je stranka lokalne, ESP32 je vzdy na 192.168.4.1
+const IN_APP = !!window.Capacitor;
+const HOST = IN_APP ? '192.168.4.1' : (location.hostname || '192.168.4.1');
 
 const $ = id => document.getElementById(id);
 const ctl = { thr: 0, yaw: 0, pitch: 0, roll: 0, arm: false };
@@ -251,7 +226,7 @@ let ws = null, lastTelemetry = 0, rx = [], mode = '';
 
 // ---------- rozlozenie: telefon / Steam Deck / PC ----------
 function applyMode() {
-  const forced = $('mode').value;
+  const forced = new URLSearchParams(location.search).get('mode');   // ?mode=pc|deck|phone na testovanie
   // podla rozlisenia obrazovky: Steam Deck = presne 1280x800, telefon = kratsia strana < 768 px, inak PC
   const w = Math.max(screen.width, screen.height), h = Math.min(screen.width, screen.height);
   mode = forced || (w === 1280 && h === 800 ? 'deck' : h < 768 ? 'phone' : 'pc');
@@ -263,20 +238,6 @@ function applyMode() {
   renderConsole('rx'); renderConsole('tx');
 }
 
-// PC, Steam Deck aj telefon: stredny stlpec presne na sirku kamery 4:3, zvysok priestoru dostanu bocne panely.
-// Prepocita sa pri kazdej zmene velkosti panelu kamery (ResizeObserver).
-function fitCamera() {
-  const side = mode === 'phone' ? $('stickL').offsetWidth + 12 : 232;
-  const cam = $('cam').getBoundingClientRect(), area = $('cam').querySelector('.camArea').getBoundingClientRect();
-  if (area.height < 10) return;
-  const w = Math.round(Math.min(area.height * 4 / 3 + (cam.width - area.width), innerWidth - 2 * side));
-  if (getComputedStyle(document.body).getPropertyValue('--camw').trim() !== w + 'px') {
-    document.body.style.setProperty('--camw', w + 'px');
-  }
-}
-new ResizeObserver(fitCamera).observe($('cam'));
-$('mode').value = new URLSearchParams(location.search).get('mode') || '';
-$('mode').onchange = applyMode;
 addEventListener('resize', applyMode);
 
 // ---------- konzoly RX / TX ----------
@@ -327,7 +288,7 @@ function frame(type, payload) {
 
 // ---------- WebSocket ----------
 function connect() {
-  ws = new WebSocket('ws://' + HOST + '/ws');
+  ws = new WebSocket('ws://' + HOST + ':81/');   // WebSocket server na ESP32 bezi na porte 81
   ws.binaryType = 'arraybuffer';
   ws.onopen = () => { $('conn').classList.add('on'); log('rx', '--- spojenie otvorené ---', true); };
   ws.onclose = () => {
@@ -503,14 +464,6 @@ function exportXlsx() {
 }
 $('export').onclick = exportXlsx;
 
-// ---------- kamera (MJPEG stream z ESP32-S3) ----------
-function startCamera() {
-  const img = $('camImg');
-  img.onload = () => { img.hidden = false; $('camNone').hidden = true; };
-  img.onerror = () => { img.hidden = true; $('camNone').hidden = false; setTimeout(startCamera, 5000); };
-  img.src = 'http://' + HOST + ':81/stream?t=' + Date.now();
-}
-
 // ---------- vstupy ----------
 const key = (...codes) => codes.some(c => keys.has(c)) ? 1 : 0;
 const clamp = v => Math.max(-1, Math.min(1, v));
@@ -602,9 +555,29 @@ function tick() {
   document.querySelectorAll('.tele').forEach(el => el.classList.toggle('stale', stale));
 }
 
+// ---------- cela obrazovka (skryje listu prehliadaca) ----------
+// prehliadac to dovoli iba po kliknuti / dotyku pouzivatela
+function toggleFullscreen() {
+  const el = document.documentElement;
+  if (document.fullscreenElement) { document.exitFullscreen(); return; }
+  const req = el.requestFullscreen || el.webkitRequestFullscreen;
+  if (!req) return;   // napr. iPhone fullscreen pre stranky nepodporuje
+  Promise.resolve(req.call(el, { navigationUI: 'hide' }))
+    .then(() => screen.orientation?.lock?.('landscape'))
+    .catch(() => {});
+}
+$('fs').onclick = toggleFullscreen;
+if (IN_APP) $('fs').hidden = true;   // aplikacia uz bezi na celu obrazovku
+// na telefone prvy dotyk mimo tlacidiel automaticky prepne na celu obrazovku
+addEventListener('pointerdown', e => {
+  if (mode === 'phone' && !IN_APP && !document.fullscreenElement && !e.target.closest('button, select, label')) toggleFullscreen();
+});
+document.addEventListener('fullscreenchange', () => {
+  $('fs').textContent = document.fullscreenElement ? '⛶ Ukončiť celú obrazovku' : '⛶ Celá obrazovka';
+});
+
 applyMode();
 connect();
-startCamera();
 setInterval(tick, PERIOD_MS);
 </script>
 </body>
